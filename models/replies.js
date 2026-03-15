@@ -3,8 +3,8 @@ module.exports = {
   // 正则表达式规则
   patterns: [
     {
-      pattern: /早上好|早啊|早安/i,
-      reply: '阿婆好'
+      pattern: /早上好|早晨|早安/i,
+      reply: '阿婆早晨'
     },
     {
       pattern: /你好|嗨|哈喽/i,
@@ -12,19 +12,23 @@ module.exports = {
     },
     {
       pattern: /再见|拜拜|回见/i,
-      reply: '阿婆再见！'
+      reply: '再见！'
     },
     {
-      pattern: /天气|气温/i,
-      reply: '抱歉，我暂时无法查询天气信息。'
+      pattern: /晚上好|晚安/i,
+      reply: '阿婆晚上好！'
     },
     {
       pattern: /谢谢|感谢|多谢/i,
       reply: '不客气！'
     },
+        {
+      pattern: /中午好|午安/i,
+      reply: '阿婆中午好！'
+    },
     {
-      pattern: /帮助|帮忙/i,
-      reply: '怎么了？'
+      pattern: /下午好/i,
+      reply: '阿婆下午好！'
     }
   ],
   
@@ -37,7 +41,7 @@ module.exports = {
       }
     }
     
-    // 没有匹配到任何模式
-    return '什么?';
+    // 没有匹配到任何模式，返回 null
+    return null;
   }
 };

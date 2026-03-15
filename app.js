@@ -2,7 +2,7 @@ const express = require('express');
 const bodyParser = require('body-parser');
 const axios = require('axios');
 const schedule = require('node-schedule');
-// const mongoose = require('mongoose');
+const mongoose = require('mongoose');
 const config = require('./config');
 const logger = require('./logger');
 
@@ -10,11 +10,11 @@ const app = express();
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
-// MongoDB连接（暂时注释，用于测试）
-// mongoose.connect('mongodb://localhost:27017/WeiXin-AutoReply', { useNewUrlParser: true, useUnifiedTopology: true });
+// MongoDB连接
+mongoose.connect('mongodb://localhost:27017/WeiXin-AutoReply', { useNewUrlParser: true, useUnifiedTopology: true });
 
-// 引入消息模型（暂时注释，用于测试）
-// const Message = require('./models/message');
+// 引入消息模型
+const Message = require('./models/message');
 const replies = require('./models/replies');
 
 // 获取access_token
@@ -25,33 +25,42 @@ app.post('/callback', (req, res) => {
   // 验证消息真实性（省略加密验证代码）
   const message = req.body;
   
-  // 保存消息（暂时注释，用于测试）
-  // const newMessage = new Message({
-  //   msgId: message.MsgId,
-  //   content: message.Content,
-  //   fromUser: message.FromUserName,
-  //   createTime: message.CreateTime,
-  //   replyTime: 0
-  // });
-  // newMessage.save();
+  // 只处理纯文字消息
+  if (message.MsgType !== 'text') {
+    logger.info(`收到非文字消息，类型: ${message.MsgType}，忽略处理`);
+    res.send('success');
+    return;
+  }
+  
+  // 保存消息到数据库
+  const newMessage = new Message({
+    msgId: message.MsgId,
+    content: message.Content,
+    fromUser: message.FromUserName,
+    createTime: message.CreateTime,
+    replyTime: 0
+  });
+  newMessage.save();
   
   // 生成回复内容
   const replyContent = replies.generateReply(message.Content);
+  
+  // 如果没有匹配到任何规则，不回复
+  if (!replyContent) {
+    logger.info(`消息: "${message.Content}" 未匹配任何规则，不回复`);
+    res.send('success');
+    return;
+  }
 
   // 生成1-10分钟的随机延迟（生产环境使用）
-  // const delayMinutes = Math.floor(Math.random() * 10) + 1;
-  // const replyDate = new Date();
-  // replyDate.setMinutes(replyDate.getMinutes() + delayMinutes);
-
-  // 生成10-15秒的随机延迟（测试环境使用）
-  const delaySeconds = Math.floor(Math.random() * 5) + 10;
+  const delayMinutes = Math.floor(Math.random() * 10) + 1;
   const replyDate = new Date();
-  replyDate.setSeconds(replyDate.getSeconds() + delaySeconds);
-  
+  replyDate.setMinutes(replyDate.getMinutes() + delayMinutes);
+
   // 记录接收消息时间和预计回复时间
   const receiveTime = new Date();
   logger.info(`收到消息: "${message.Content}" 来自用户: ${message.FromUserName}`);
-  logger.info(`预计等待时间: ${delaySeconds}秒，预计回复时间: ${replyDate.toISOString()}`);
+  logger.info(`预计等待时间: ${delayMinutes}分钟，预计回复时间: ${replyDate.toISOString()}`);
   
   // 安排定时任务
   const job = schedule.scheduleJob(replyDate, async () => {
@@ -61,13 +70,13 @@ app.post('/callback', (req, res) => {
     try {
       await sendMessage(message.FromUserName, replyContent);
       logger.info(`已回复消息: "${replyContent}" 给用户: ${message.FromUserName}`);
-      logger.info(`实际等待时间: ${actualDelay}秒，实际回复时间: ${actualReplyTime.toISOString()}`);
+      logger.info(`实际等待时间: ${actualDelay}分钟，实际回复时间: ${actualReplyTime.toISOString()}`);
+      
+      // 更新回复时间到数据库
+      Message.updateOne({ msgId: message.MsgId }, { replyTime: Math.floor(Date.now() / 1000) }).exec();
     } catch (error) {
       logger.error(`回复消息失败: ${error.message}`);
     }
-    
-    // 更新回复时间（暂时注释，用于测试）
-    // Message.updateOne({ msgId: message.MsgId }, { replyTime: Math.floor(Date.now() / 1000) }).exec();
   });
   
   // 响应企业微信
