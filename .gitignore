@@ -43,4 +43,4 @@ temp/
 
 # 配置文件（包含敏感信息）
 # 注意：如果您想提交 config.js 的模板，请取消注释下面这行
-config.js
+# config.js
